@@ -35,7 +35,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("References")]
     [Tooltip("Drag the GrappleHook component here.")]
-    public GrappleHook grappleHook;
+    public TongueHook tongueHook;
 
     // ── Private ──────────────────────────────────────────────────────────────
     private Rigidbody2D rb;
@@ -104,7 +104,7 @@ public class PlayerController : MonoBehaviour
         {
             animator.SetFloat("Speed",      Mathf.Abs(horizontalInput));
             animator.SetBool("IsGrounded",  isGrounded);
-            animator.SetBool("IsGrappling", tongueActive);
+            animator.SetBool("IsHooking", tongueActive);
         }
     }
 
@@ -113,6 +113,10 @@ public class PlayerController : MonoBehaviour
         // Ground check
         if (groundCheck != null)
             isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+
+        // Keep GrappleHook informed so it can create/destroy the joint on landing/takeoff
+        if (tongueHook != null)
+            tongueHook.NotifyGrounded(isGrounded);
 
         bool tongueActive   = IsTongueActive();
         bool pendulumActive = tongueActive && !isGrounded && !inSwingWindow;
@@ -152,8 +156,8 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     bool IsTongueActive()
     {
-        return grappleHook != null &&
-               (grappleHook.IsGrappling || grappleHook.IsTravelling);
+        return tongueHook != null &&
+               (tongueHook.IsHooking || tongueHook.IsTravelling);
     }
 
     void OnDrawGizmosSelected()

@@ -47,7 +47,6 @@ public class GameManager : MonoBehaviour
     // Cached scene-object references (refreshed on each scene load)
     private HealthSystem cachedHealthSystem;
     private PlayerRespawn cachedPlayerRespawn;
-    private GrappleHook cachedGrappleHook;
 
     // ── Unity Lifecycle ──────────────────────────────────────────────────────
 
@@ -109,7 +108,6 @@ public class GameManager : MonoBehaviour
     {
         cachedHealthSystem  = FindFirstObjectByType<HealthSystem>();
         cachedPlayerRespawn = FindFirstObjectByType<PlayerRespawn>();
-        cachedGrappleHook   = FindFirstObjectByType<GrappleHook>();
     }
 
     // ── Public API ───────────────────────────────────────────────────────────

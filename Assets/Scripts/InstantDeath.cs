@@ -7,10 +7,6 @@ using UnityEngine;
 /// </summary>
 public class InstantDeath : MonoBehaviour
 {
-    [Header("Damage")]
-    [Tooltip("Amount of damage dealt to the player on each contact.")]
-    public float damageAmount = 25f;
-
     public void OnCollisionEnter2D(Collision2D collision)
     {
         if (!collision.gameObject.CompareTag("Player")) return;
@@ -19,7 +15,7 @@ public class InstantDeath : MonoBehaviour
 
         if (health != null)
         {
-            health.TakeDamage(damageAmount, transform.position);
+            health.TakeDamage(100);
         }
         else
         {

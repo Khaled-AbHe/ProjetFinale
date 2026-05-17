@@ -8,7 +8,7 @@ using UnityEngine;
 public class Collectible : MonoBehaviour
 {
     [Header("Settings")]
-    public int scoreValue = 10;            // Points awarded on collection
+    public int scoreValue = 5;            // Points awarded on collection
     public bool destroyOnCollect = true;   // Remove the object after pickup
 
     [Header("Effects")]

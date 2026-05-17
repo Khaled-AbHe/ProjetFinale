@@ -34,18 +34,14 @@ public class TongueHook : MonoBehaviour
     [Tooltip("Maximum reach of the tongue")]
     public float maxLength = 10f;
 
-    [Tooltip("Minimum rope length when pulling")]
-    public float minLength = 1f;
-
     [Tooltip("How fast pulling shortens the tongue")]
     public float pullSpeed = 3f;
 
     [Tooltip("How fast extending lengthens the tongue")]
     public float extendSpeed = 3f;
 
-    [Header("Tongue Travel")]
-    [Tooltip("Speed (units/sec) at which the tongue tip travels to the anchor before attaching")]
-    public float tongueSpeed = 20f;
+    [Tooltip("Seconds before the tongue can be fired again after each attempt, hit or miss.")]
+    public float fireCooldown = 0.5f;
 
     [Header("Release Boost")]
     [Tooltip("Multiplier applied to velocity on release for a satisfying momentum kick. 0 = no boost.")]
@@ -70,13 +66,7 @@ public class TongueHook : MonoBehaviour
 
     // ── Feedback ──────────────────────────────────────────────────────────────
 
-    [Header("Miss Feedback")]
-    [Tooltip("Particle/prefab spawned at max range when the tongue hits nothing")]
-    public GameObject missEffect;
-    public AudioClip  missSound;
-
-    [Header("Hit Feedback")]
-    [Tooltip("Sound played at the anchor point when the tongue successfully attaches")]
+    [Header("Sound Effects")]
     public AudioClip hitSound;
 
     // ── Private State ─────────────────────────────────────────────────────────
@@ -94,9 +84,8 @@ public class TongueHook : MonoBehaviour
     private Vector2   travelTip;
     private Coroutine travelCoroutine;
 
-    // The cooldown guards against the toggle case where fire and release are
-    // the same button — without it a single press could fire and immediately
-    // release within the same frame depending on script execution order.
+    // The small input debounce stays separate — it guards against same-frame
+    // double-fires and should remain much shorter than the gameplay cooldown.
     private const float InputCooldown = 0.1f;
     private float lastFireTime = -999f;
 
@@ -120,6 +109,7 @@ public class TongueHook : MonoBehaviour
 
     void Update()
     {
+        if (Time.timeScale == 0f) return;
         HandleFireInput();
     }
 
@@ -182,14 +172,14 @@ public class TongueHook : MonoBehaviour
 
     void HandleFireInput()
     {
-        bool holdActive  = Input.GetMouseButton(1);      // RMB held
         bool holdStarted = Input.GetMouseButtonDown(1);  // RMB just pressed
         bool holdEnded   = Input.GetMouseButtonUp(1);    // RMB just released
 
         // Fire on initial press (not every frame of the hold)
         if (holdStarted && !IsTongueActive)
         {
-            if (Time.time - lastFireTime >= InputCooldown)
+            if (Time.time - lastFireTime >= InputCooldown &&
+                Time.time - lastFireTime >= fireCooldown)
             {
                 lastFireTime = Time.time;
                 TryFireGrapple();
@@ -210,7 +200,7 @@ public class TongueHook : MonoBehaviour
         if (!isHooking || joint == null) return;
 
         if (Input.GetKey(KeyCode.W))
-            joint.distance = Mathf.Max(minLength, joint.distance - pullSpeed   * Time.fixedDeltaTime);
+            joint.distance = Mathf.Max(1f, joint.distance - pullSpeed   * Time.fixedDeltaTime);
         else if (Input.GetKey(KeyCode.S))
             joint.distance = Mathf.Min(maxLength, joint.distance + extendSpeed * Time.fixedDeltaTime);
     }
@@ -224,18 +214,7 @@ public class TongueHook : MonoBehaviour
 
         RaycastHit2D hit = Physics2D.Raycast(transform.position, direction, maxLength, grappleLayer);
 
-        if (hit.collider == null)
-        {
-            Vector2 missPos = (Vector2)transform.position + direction * maxLength;
-
-            if (missEffect != null)
-                Instantiate(missEffect, missPos, Quaternion.identity);
-
-            if (missSound != null)
-                AudioSource.PlayClipAtPoint(missSound, missPos);
-
-            return;
-        }
+        if (hit.collider == null) { return; }
 
         anchorPoint     = hit.point;
         travelCoroutine = StartCoroutine(TongueTravelRoutine(anchorPoint));
@@ -250,7 +229,7 @@ public class TongueHook : MonoBehaviour
 
         while (Vector2.Distance(travelTip, target) > 0.05f)
         {
-            travelTip = Vector2.MoveTowards(travelTip, target, tongueSpeed * Time.deltaTime);
+            travelTip = Vector2.MoveTowards(travelTip, target, 50f * Time.deltaTime);
             yield return null;
         }
 

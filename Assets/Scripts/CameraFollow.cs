@@ -15,9 +15,15 @@ public class CameraFollow : MonoBehaviour
 
     [Header("Camera Bounds (optional)")]
     public bool useBounds = false;
-    public float minX, maxX, minY, maxY;  // World-space camera limits
+    public float minX, maxX, minY, maxY;  // World-space level edges (not camera center)
 
     private Vector3 desiredPosition;
+    private Camera cam;
+
+    void Start()
+    {
+        cam = GetComponent<Camera>();
+    }
 
     void LateUpdate() // LateUpdate runs after all Updates – ideal for cameras
     {
@@ -33,8 +39,15 @@ public class CameraFollow : MonoBehaviour
         // Clamp to level bounds if enabled
         if (useBounds)
         {
-            desiredPosition.x = Mathf.Clamp(desiredPosition.x, minX, maxX);
-            desiredPosition.y = Mathf.Clamp(desiredPosition.y, minY, maxY);
+            // How much world space the camera shows from its center to each edge.
+            // These change automatically with different screen sizes and aspect ratios.
+            float camHalfHeight = cam.orthographicSize;
+            float camHalfWidth  = cam.orthographicSize * cam.aspect;
+
+            // Inset the clamp by the camera's half-size so the screen EDGE
+            // lines up with minX/maxX/minY/maxY, not the camera center.
+            desiredPosition.x = Mathf.Clamp(desiredPosition.x, minX + camHalfWidth,  maxX - camHalfWidth);
+            desiredPosition.y = Mathf.Clamp(desiredPosition.y, minY + camHalfHeight, maxY - camHalfHeight);
         }
 
         // Smoothly move toward the desired position

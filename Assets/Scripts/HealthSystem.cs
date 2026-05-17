@@ -105,10 +105,13 @@ public class HealthSystem : MonoBehaviour
     {
         OnDeath?.Invoke();
 
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.LoseLife();
-        }
+        // Delegate to PlayerAnimationEvents so the death animation plays
+        // before GameManager.LoseLife() is called.
+        PlayerAnimationEvents animEvents = GetComponent<PlayerAnimationEvents>();
+        if (animEvents != null)
+            animEvents.TriggerDeath();
+        else if (GameManager.Instance != null)
+            GameManager.Instance.LoseLife(); // fallback if script is missing
 
         Debug.Log("Player died");
     }

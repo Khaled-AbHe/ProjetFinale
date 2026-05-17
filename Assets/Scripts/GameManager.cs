@@ -38,15 +38,16 @@ public class GameManager : MonoBehaviour
     public string currentEnvironmentDescription;
 
     // ── State ────────────────────────────────────────────────────────────────
-    private int score;
-    private int lives;
+    private int  score;
+    private int  lives;
     private bool isPaused;
     private bool isGameOver;
-    private bool initialized;
 
     // Cached scene-object references (refreshed on each scene load)
-    private HealthSystem cachedHealthSystem;
+    private HealthSystem  cachedHealthSystem;
     private PlayerRespawn cachedPlayerRespawn;
+    private TongueHook             cachedTongueHook;
+    private PlayerAnimationEvents  cachedAnimEvents;
 
     // ── Unity Lifecycle ──────────────────────────────────────────────────────
 
@@ -59,26 +60,13 @@ public class GameManager : MonoBehaviour
         }
 
         Instance = this;
-
-        // The whole GameObject (and all its UI children) persists across scenes.
-        // Because the Canvas is a child, it travels with the GameManager and
-        // references assigned in the Inspector are never invalidated by a reload.
         DontDestroyOnLoad(gameObject);
-
         SceneManager.sceneLoaded += OnSceneLoaded;
-    }
 
-    private void Start()
-    {
-        if (!initialized)
-        {
-            lives       = startingLives;
-            score       = 0;
-            initialized = true;
-        }
-
-        HideAllPanels();
-        UpdateUI();
+        // Initialize state in Awake — this only ever runs once on the
+        // persistent object, so no initialized flag needed.
+        lives = startingLives;
+        score = 0;
     }
 
     private void Update()
@@ -96,7 +84,10 @@ public class GameManager : MonoBehaviour
         if (cachedHealthSystem != null)
             cachedHealthSystem.ResetHealth();
 
-        // Always hide panels on a fresh scene load (covers the restart path)
+        // Set environment text once per scene load rather than on every UI update.
+        if (environmentText != null)
+            environmentText.text = currentEnvironmentDescription;
+
         HideAllPanels();
         UpdateUI();
     }
@@ -108,6 +99,8 @@ public class GameManager : MonoBehaviour
     {
         cachedHealthSystem  = FindFirstObjectByType<HealthSystem>();
         cachedPlayerRespawn = FindFirstObjectByType<PlayerRespawn>();
+        cachedTongueHook    = FindFirstObjectByType<TongueHook>();
+        cachedAnimEvents    = FindFirstObjectByType<PlayerAnimationEvents>();
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -120,6 +113,8 @@ public class GameManager : MonoBehaviour
 
     public void LoseLife()
     {
+        if (isGameOver) return;  // guard against double-calls before game over completes
+
         lives--;
         UpdateUI();
 
@@ -169,25 +164,41 @@ public class GameManager : MonoBehaviour
 
     private void RespawnPlayer()
     {
-        // if (cachedGrappleHook != null)
-        //     cachedGrappleHook
-        // else
-        //     Debug.LogWarning("GameManager: No GrappleHook found in scene — skipping release.");
+        // Release tongue
+        if (cachedTongueHook != null)
+            cachedTongueHook.ReleaseGrapple();
+
+        // Destroy all active spit projectiles
+        foreach (SpitProjectile spit in FindObjectsByType<SpitProjectile>(FindObjectsSortMode.None))
+            Destroy(spit.gameObject);
 
         if (cachedPlayerRespawn != null)
             cachedPlayerRespawn.Respawn();
         else
             Debug.LogWarning("GameManager: No PlayerRespawn found in scene — player won't be repositioned.");
+
+        // Play spawn animation and re-enable player control when done
+        if (cachedAnimEvents != null)
+            cachedAnimEvents.TriggerSpawn();
     }
 
-    private void TriggerGameOver()
+    public void TriggerGameOver()
     {
-        isGameOver     = true;
+        isGameOver = true;
+
+        if (cachedAnimEvents != null)
+        {
+            cachedAnimEvents.TriggerDeath(isGameOver: true);
+            return; // ShowGameOverPanel() will be called by PlayerAnimationEvents after animation
+        }
+
+        ShowGameOverPanel(); // fallback if PlayerAnimationEvents is missing
+    }
+
+    public void ShowGameOverPanel()
+    {
         Time.timeScale = 0f;
 
-        // gameOverPanel is a child of this persistent GameObject,
-        // so this reference is always valid regardless of how many times
-        // the scene has been reloaded.
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);
         else
@@ -208,14 +219,13 @@ public class GameManager : MonoBehaviour
     private void HideAllPanels()
     {
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
-        if (pausePanel != null)    pausePanel.SetActive(false);
+        if (pausePanel    != null) pausePanel.SetActive(false);
     }
 
     private void UpdateUI()
     {
-        if (scoreText != null)       scoreText.text       = "Score: " + score;
-        if (livesText != null)       livesText.text       = "Lives: " + lives;
-        if (environmentText != null) environmentText.text = currentEnvironmentDescription;
+        if (scoreText != null) scoreText.text = "Score: " + score;
+        if (livesText != null) livesText.text = "Lives: " + lives;
     }
 
     private void OnDestroy()

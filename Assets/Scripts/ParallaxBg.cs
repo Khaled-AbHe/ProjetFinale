@@ -2,21 +2,21 @@ using UnityEngine;
 
 public class ParallaxBg : MonoBehaviour
 {
-    [SerializeField] private float parallaxFactor = 0.1f;
+    public float parallaxFactor = 0.1f;
 
-    private Camera _cam;
-    private Vector3 _lastCamPos;
+    private Camera cam;
+    private Vector3 prevCamPosition;
 
     void Start()
     {
-        _cam = Camera.main;
-        _lastCamPos = _cam.transform.position;
+        cam = Camera.main;
+        prevCamPosition = cam.transform.position;
     }
 
     void Update()
     {
-        Vector3 camDelta = _cam.transform.position - _lastCamPos;
-        transform.position += new Vector3(camDelta.x * parallaxFactor, 0, 0);
-        _lastCamPos = _cam.transform.position;
+        float difference = cam.transform.position.x - prevCamPosition.x;
+        transform.position += new Vector3(difference * parallaxFactor, 0, 0);
+        prevCamPosition = cam.transform.position;
     }
 }

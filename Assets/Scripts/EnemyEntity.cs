@@ -1,17 +1,7 @@
+using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Simple enemy that patrols between two points, optionally chases the player,
-/// and has its own health system (instant death on reaching 0 HP).
-///
-/// SETUP:
-///   1. Add this script to your enemy prefab.
-///   2. Create two empty GameObjects in the scene as patrol boundaries,
-///      assign them to pointA and pointB.
-///   3. Set maxHealth, patrolSpeed, chaseSpeed, detectionRange to taste.
-///   4. Assign playerLayer to your Player layer.
-/// </summary>
-[RequireComponent(typeof(Rigidbody2D))]
+// soruce: https://www.youtube.com/watch?v=5R0FgRNvBcM
 public class EnemyEntity : MonoBehaviour
 {
     [Header("Patrol Points")]
@@ -24,12 +14,11 @@ public class EnemyEntity : MonoBehaviour
     public float waitTime    = 0.5f;
 
     [Header("Player Detection")]
-    public float     detectionRange = 4f;
+    public float detectionRange = 4f;
     public LayerMask playerLayer;
-    public bool      canChase       = true;
 
     [Header("Health")]
-    public float maxHealth     = 30f;
+    public float maxHealth = 30f;
     public float contactDamage = 10f;
 
     [Header("Hit Flash")]
@@ -38,21 +27,18 @@ public class EnemyEntity : MonoBehaviour
     [Header("Settings")]
     public int scoreValue = 1;
 
-    // ── Private state ─────────────────────────────────────────────────────────
-    private Rigidbody2D    rb;
-    private Vector3        originalScale;
-    private Transform      player;
+    private Rigidbody2D rb;
+    private Vector3 originalScale;
+    private Transform player;
     private SpriteRenderer spriteRenderer;
-    private Animator       animator;
-
+    private Animator animator;
     private float currentHealth;
 
     // Patrol
     private Transform patrolTarget;
-    private bool      isWaiting;
-    private float     waitTimer;
-
-    // ── Unity Lifecycle ───────────────────────────────────────────────────────
+    private bool isWaiting;
+    private float waitTimer;
+    private float distance;
 
     void Start()
     {
@@ -62,26 +48,30 @@ public class EnemyEntity : MonoBehaviour
 
         originalScale = transform.localScale;
         currentHealth = maxHealth;
-        patrolTarget  = pointB;
+        patrolTarget = pointB;
         spriteRenderer = GetComponent<SpriteRenderer>();
-        animator       = GetComponent<Animator>();
+        animator = GetComponent<Animator>();
 
         GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null) player = playerObj.transform;
+        player = playerObj.transform;
     }
+
+    void Update()
+    {
+        distance = Vector2.Distance(transform.position, player.position);
+    }   
 
     void FixedUpdate()
     {
-        bool playerInRange = player != null &&
-                             Vector2.Distance(transform.position, player.position) <= detectionRange;
-
-        if (canChase && playerInRange)
+        if (distance <= detectionRange)
+        {
             ChasePlayer();
+        }
         else
+        {
             Patrol();
+        }
     }
-
-    // ── Patrol ────────────────────────────────────────────────────────────────
 
     void Patrol()
     {
@@ -89,25 +79,31 @@ public class EnemyEntity : MonoBehaviour
 
         if (isWaiting)
         {
+            // stop moving
             rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            // timer
             waitTimer -= Time.fixedDeltaTime;
             if (waitTimer <= 0f) isWaiting = false;
-            if (animator != null) animator.SetBool("IsMoving", false);
+            animator.SetBool("IsMoving", false);
             return;
         }
 
-        float toTarget = patrolTarget.position.x - transform.position.x;
+        bool enemyIsCloseToPoint = Mathf.Abs(patrolTarget.position.x - transform.position.x) <= 0.05f;
 
-        if (Mathf.Abs(toTarget) <= 0.05f)
+        if (enemyIsCloseToPoint)
         {
+            // stop moving
             rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-            if (animator != null) animator.SetBool("IsMoving", false);
-            patrolTarget      = (patrolTarget == pointA) ? pointB : pointA;
-            isWaiting         = true;
-            waitTimer         = waitTime;
+            animator.SetBool("IsMoving", false);
+            // switches point
+            patrolTarget = (patrolTarget == pointA) ? pointB : pointA;
+            // waiting activated
+            isWaiting = true;
+            waitTimer = waitTime;
             return;
         }
 
+        // keep moving
         MoveToward(patrolTarget.position, patrolSpeed);
     }
 
@@ -118,59 +114,50 @@ public class EnemyEntity : MonoBehaviour
 
     void MoveToward(Vector3 destination, float speed)
     {
-        float dir         = Mathf.Sign(destination.x - transform.position.x);
-        rb.linearVelocity = new Vector2(dir * speed, rb.linearVelocity.y);
+        float direction = Mathf.Sign(destination.x - transform.position.x);
+        rb.linearVelocity = new Vector2(direction * speed, rb.linearVelocity.y);
 
         transform.localScale = new Vector3(
-            Mathf.Abs(originalScale.x) * dir,
+            Mathf.Abs(originalScale.x) * direction,
             originalScale.y,
             originalScale.z
         );
 
-        if (animator != null) animator.SetBool("IsMoving", true);
+        animator.SetBool("IsMoving", true);
     }
 
-    // ── Player Contact Damage ─────────────────────────────────────────────────
-
+    // Damage Player
     void OnCollisionEnter2D(Collision2D collision)
     {
         HealthSystem playerHealth = collision.gameObject.GetComponent<HealthSystem>();
-        if (playerHealth != null)
-            playerHealth.TakeDamage(contactDamage, transform.position);
+        playerHealth.TakeDamage(contactDamage);
     }
 
-    // ── Health ────────────────────────────────────────────────────────────────
-
-    public void TakeDamage(float amount, Vector2? damageSourcePosition = null)
+    // Enemy HP
+    public void TakeDamage(float amount)
     {
         if (currentHealth <= 0) return;
 
         currentHealth -= amount;
+        // makes sure it doesnt go below 0
+        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
 
         if (currentHealth <= 0)
         {
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.AddScore(scoreValue);
-            }
-
+            GameManager.Instance.AddScore(scoreValue);
             Destroy(gameObject);
             return;
         }
 
-        if (spriteRenderer != null)
-            StartCoroutine(FlashRed());
+        StartCoroutine(FlashRed());
     }
 
-    System.Collections.IEnumerator FlashRed()
+    IEnumerator FlashRed()
     {
         spriteRenderer.color = Color.red;
         yield return new WaitForSeconds(flashDuration);
-        if (spriteRenderer != null)
-            spriteRenderer.color = Color.white;
+        spriteRenderer.color = Color.white;
     }
-
-    // ── Gizmos ────────────────────────────────────────────────────────────────
 
     void OnDrawGizmosSelected()
     {

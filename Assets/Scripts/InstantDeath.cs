@@ -1,26 +1,17 @@
 using UnityEngine;
 
-/// <summary>
-/// Deals damage to the player on contact.
-/// Attach to any enemy or hazard GameObject with a Collider2D.
-/// The player GameObject must be tagged "Player" and have a HealthSystem component.
-/// </summary>
 public class InstantDeath : MonoBehaviour
 {
     public void OnCollisionEnter2D(Collision2D collision)
     {
-        if (!collision.gameObject.CompareTag("Player")) return;
-
-        HealthSystem health = collision.gameObject.GetComponent<HealthSystem>();
-
-        if (health != null)
+        if (collision.gameObject.CompareTag("Player"))
         {
-            health.TakeDamage(100);
-        }
-        else
+            HealthSystem health = collision.gameObject.GetComponent<HealthSystem>();
+            health.TakeDamage(999999);
+        } else if (collision.gameObject.CompareTag("Enemy"))
         {
-            Debug.LogWarning($"InstantDeath: Player object '{collision.gameObject.name}' " +
-                             "is missing a HealthSystem component.");
+            EnemyEntity enemyEntity = collision.gameObject.GetComponent<EnemyEntity>();
+            enemyEntity.TakeDamage(999999);
         }
     }
 }

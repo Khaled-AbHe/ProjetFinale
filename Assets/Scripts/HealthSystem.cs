@@ -1,6 +1,9 @@
 using System.Collections;
 using UnityEngine;
 
+[RequireComponent(typeof(LifeAnimations))]
+[RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(SpriteRenderer))]
 public class HealthSystem : MonoBehaviour
 {
     [Header("Health Settings")]
@@ -26,38 +29,24 @@ public class HealthSystem : MonoBehaviour
     private void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-
-        if (spriteRenderer == null)
-            spriteRenderer = GetComponent<SpriteRenderer>();
-
+        spriteRenderer = GetComponent<SpriteRenderer>();
         ResetHealth();
     }
 
-    public void TakeDamage(float amount, Vector2? damageSourcePosition = null)
+    public void TakeDamage(float amount)
     {
         if (isInvincible || currentHealth <= 0)
+        {
             return;
+        }
 
         currentHealth -= amount;
-
+        // makes sure it doesnt go below 0 
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
 
         OnDamaged?.Invoke(currentHealth);
 
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.UpdateHealthUI(currentHealth, maxHealth);
-        }
-
-        if (damageSourcePosition.HasValue && rb != null)
-        {
-            Vector2 knockDir =
-                ((Vector2)transform.position - damageSourcePosition.Value).normalized;
-
-            rb.linearVelocity = Vector2.zero;
-
-            rb.AddForce(knockDir * knockbackForce, ForceMode2D.Impulse);
-        }
+        GameManager.Instance.UpdateHealthUI(currentHealth, maxHealth);
 
         if (currentHealth <= 0)
         {
@@ -69,51 +58,18 @@ public class HealthSystem : MonoBehaviour
         }
     }
 
-    public void Heal(float amount)
-    {
-        currentHealth += amount;
-
-        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
-
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.UpdateHealthUI(currentHealth, maxHealth);
-        }
-    }
-
     public void ResetHealth()
     {
         currentHealth = maxHealth;
-
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.UpdateHealthUI(currentHealth, maxHealth);
-        }
-    }
-
-    public float GetCurrentHealth()
-    {
-        return currentHealth;
-    }
-
-    public float GetMaxHealth()
-    {
-        return maxHealth;
+        GameManager.Instance.UpdateHealthUI(currentHealth, maxHealth);
     }
 
     private void Die()
     {
         OnDeath?.Invoke();
 
-        // Delegate to PlayerAnimationEvents so the death animation plays
-        // before GameManager.LoseLife() is called.
-        PlayerAnimationEvents animEvents = GetComponent<PlayerAnimationEvents>();
-        if (animEvents != null)
-            animEvents.TriggerDeath();
-        else if (GameManager.Instance != null)
-            GameManager.Instance.LoseLife(); // fallback if script is missing
-
-        Debug.Log("Player died");
+        LifeAnimations lifeAnimations = GetComponent<LifeAnimations>();
+        lifeAnimations.TriggerDeath();
     }
 
     private IEnumerator InvincibilityFrames()
@@ -124,21 +80,12 @@ public class HealthSystem : MonoBehaviour
 
         while (elapsed < invincibilityDuration)
         {
-            if (spriteRenderer != null)
-            {
-                spriteRenderer.enabled = !spriteRenderer.enabled;
-            }
-
+            spriteRenderer.enabled = !spriteRenderer.enabled;
             yield return new WaitForSeconds(flashInterval);
-
             elapsed += flashInterval;
         }
 
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.enabled = true;
-        }
-
+        spriteRenderer.enabled = true;
         isInvincible = false;
     }
 }

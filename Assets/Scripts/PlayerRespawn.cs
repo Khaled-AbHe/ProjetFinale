@@ -21,17 +21,8 @@ public class PlayerRespawn : MonoBehaviour
             transform.position = spawnPoint.position;
         }
 
-        if (rb != null)
-        {
-            rb.linearVelocity = Vector2.zero;
-            rb.angularVelocity = 0f;
-            
-        }
-
-        if (healthSystem != null)
-        {
-            healthSystem.ResetHealth();
-        }
-        
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+        healthSystem.ResetHealth();
     }
 }
